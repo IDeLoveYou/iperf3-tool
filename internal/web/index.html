@@ -1,0 +1,1365 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>网络波动监测</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="/assets/monitor-ui.css">
+    <style>
+        :root {
+            --bg: #f4f7fb;
+            --panel: #fff;
+            --line: #e4e9f2;
+            --text: #172033;
+            --muted: #6b7890;
+            --blue: #2868e8;
+            --green: #14966b;
+            --red: #dc4658;
+            --amber: #cc8610;
+            --shadow: 0 12px 32px #1b35600e;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scrollbar-gutter: stable;
+        }
+
+        body {
+            margin: 0;
+            overflow-anchor: none;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+        }
+
+        .wrap {
+            max-width: 1500px;
+            margin: auto;
+            padding: 26px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 22px;
+        }
+
+        h1 {
+            margin: 0 0 5px;
+            font-size: 27px;
+            letter-spacing: -.5px;
+        }
+
+        h2 {
+            margin: 0 0 16px;
+            font-size: 17px;
+        }
+
+        .sub, .small {
+            color: var(--muted);
+        }
+
+        .status {
+            display: flex;
+            gap: 9px;
+            align-items: center;
+            padding: 9px 14px;
+            border-radius: 20px;
+            background: #fff;
+            box-shadow: var(--shadow);
+            white-space: nowrap;
+        }
+
+        .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #94a2b8;
+        }
+
+        .dot.running {
+            background: var(--green);
+            box-shadow: 0 0 0 5px #14966b18;
+        }
+
+        .dot.error {
+            background: var(--red);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns:330px 1fr;
+            gap: 18px;
+            align-items: start;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 19px;
+            box-shadow: var(--shadow);
+            margin-bottom: 18px;
+        }
+
+        .config {
+            position: sticky;
+            top: 18px;
+        }
+
+        label {
+            display: block;
+            margin: 12px 0 5px;
+            font-weight: 600;
+            font-size: 12px;
+            color: #43516a;
+        }
+
+        input[type=text], input[type=number] {
+            width: 100%;
+            padding: 9px 10px;
+            border: 1px solid #d9e0eb;
+            border-radius: 8px;
+            color: var(--text);
+            background: #fbfcfe;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px #2868e818;
+        }
+
+        input:disabled, select:disabled {
+            color: #7c879a;
+            background: #f2f4f8;
+            cursor: not-allowed;
+            opacity: 1;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns:1fr 1fr;
+            gap: 10px;
+        }
+
+        select {
+            width: 100%;
+            padding: 9px 10px;
+            border: 1px solid #d9e0eb;
+            border-radius: 8px;
+            color: var(--text);
+            background: #fbfcfe;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 9px;
+            margin-top: 18px;
+        }
+
+        button {
+            border: 0;
+            border-radius: 8px;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .primary {
+            color: #fff;
+            background: var(--blue);
+            flex: 1;
+        }
+
+        .danger {
+            color: #fff;
+            background: var(--red);
+            flex: 1;
+        }
+
+        button:disabled {
+            opacity: .45;
+            cursor: not-allowed;
+        }
+
+        #testSelectorApp {
+            min-height: 38px;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns:repeat(6, minmax(115px, 1fr));
+            gap: 11px;
+        }
+
+        .card {
+            border: 1px solid var(--line);
+            border-radius: 11px;
+            padding: 14px;
+            background: #fff;
+            min-height: 90px;
+        }
+
+        .card .label {
+            color: var(--muted);
+            font-size: 12px;
+            margin-bottom: 7px;
+        }
+
+        .value {
+            font-weight: 750;
+            font-size: 21px;
+            letter-spacing: -.4px;
+        }
+
+        .value.compact {
+            font-size: 15px;
+            white-space: nowrap;
+            letter-spacing: -.2px;
+        }
+
+        .value.compact.direction-pair {
+            /* 上、下行各占一行，避免带单位的数值在窄卡片中相互挤压。 */
+            white-space: pre-line;
+            line-height: 1.65;
+        }
+
+        .value-detail {
+            margin-top: 5px;
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+
+        .value.bad {
+            color: var(--red);
+        }
+
+        .value.good {
+            color: var(--green);
+        }
+
+        .value.warn {
+            color: var(--amber);
+        }
+
+        .charts {
+            display: grid;
+            grid-template-columns:1fr 1fr;
+            gap: 18px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 170px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .legend i {
+            display: inline-block;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            margin-right: 4px;
+            background: var(--red);
+        }
+
+        .legend i.blue {
+            background: var(--blue);
+        }
+
+        .info {
+            display: grid;
+            grid-template-columns:repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            align-items: start;
+        }
+
+        .info div {
+            min-width: 0;
+        }
+
+        .info b {
+            display: block;
+            font-size: 12px;
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .info span {
+            display: block;
+            min-width: 0;
+            margin-top: 3px;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .info .info-wide {
+            grid-column: span 2;
+        }
+
+        .table-wrap {
+            overflow: auto;
+            height: 430px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            white-space: nowrap;
+        }
+
+        th, td {
+            padding: 9px 10px;
+            border-bottom: 1px solid #edf0f5;
+            text-align: right;
+        }
+
+        th {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            background: #fff;
+        }
+
+        th:first-child, td:first-child {
+            text-align: left;
+        }
+
+        .confirmed {
+            color: var(--green);
+        }
+
+        .live {
+            color: var(--blue);
+        }
+
+        .loss-high {
+            color: var(--red);
+            font-weight: 700;
+        }
+
+        .loss-mid {
+            color: var(--amber);
+            font-weight: 700;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        footer {
+            color: var(--muted);
+            text-align: center;
+            font-size: 12px;
+            padding: 2px 0 16px;
+        }
+
+        @media (max-width: 1050px) {
+            .grid {
+                grid-template-columns:1fr;
+            }
+
+            .config {
+                position: static;
+            }
+
+            .cards {
+                grid-template-columns:repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 650px) {
+            .wrap {
+                padding: 14px;
+            }
+
+            header {
+                display: block;
+            }
+
+            .status {
+                margin-top: 14px;
+                width: max-content;
+            }
+
+            .cards, .info {
+                grid-template-columns:repeat(2, minmax(0, 1fr));
+            }
+
+            .charts {
+                grid-template-columns:1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<main class="wrap">
+    <header>
+        <div><h1>网络波动监测</h1>
+            <div class="sub">基于 iperf3 · UDP 丢包与 TCP 重传 · 多测试并行</div>
+        </div>
+        <div class="status"><i id="dot" class="dot"></i><span id="stateText">未开始</span><span id="updatedText"
+                                                                                                class="small"></span>
+        </div>
+    </header>
+    <div class="grid">
+        <aside class="panel config">
+            <h2>监测配置</h2>
+            <label>测试标签</label>
+            <div id="testSelectorApp"></div>
+            <label>服务端地址</label><input id="host" type="text" value="127.0.0.1" autocomplete="off">
+            <div class="row">
+                <div><label>服务端端口</label><input id="port" type="number" min="1" max="65535" value="5201"></div>
+                <div><label>并行流</label><input id="parallelStreams" type="number" min="1" max="32" value="1"></div>
+            </div>
+            <div class="row">
+                <div><label>统计间隔（秒）</label><input id="intervalSeconds" type="number" min="0.1" max="60" step="0.1"
+                                                       value="1"></div>
+                <div><label>单次探测（秒）</label><input id="probeDuration" type="number" min="1" max="3600" value="10">
+                </div>
+            </div>
+            <label>iperf3 路径</label><input id="binaryPath" type="text" value="iperf3" placeholder="命令名或绝对路径">
+            <div class="row">
+                <div><label>检测协议</label>
+                    <div id="protocolSelectApp"></div>
+                    <input id="protocol" type="hidden" value="udp"></div>
+                <div><label>测试方向</label>
+                    <div id="modeSelectApp"></div>
+                    <input id="mode" type="hidden" value="bidir"></div>
+            </div>
+            <div class="row">
+                <div><label>UDP 包长度</label><input id="packetLength" type="number" min="0" max="65507" value="256">
+                </div>
+                <div><label>UDP 目标速率</label><input id="bitrate" type="text" value="1M"></div>
+            </div>
+            <label>预热（秒）</label><input id="omitSeconds" type="number" value="3" min="0" max="3599" step="1">
+            <div class="buttons">
+                <button id="start" class="primary">开始监测</button>
+                <button id="stop" class="danger hidden" disabled>停止当前监测</button>
+            </div>
+        </aside>
+        <section>
+            <div id="udpDashboard" class="panel">
+                <div class="cards">
+                    <div class="card">
+                        <div class="label">累计上行丢包率</div>
+                        <div id="uploadLoss" class="value">—</div>
+                        <div id="uploadLossPackets" class="value-detail">等待确认</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">累计下行丢包率</div>
+                        <div id="downloadLoss" class="value">—</div>
+                        <div id="downloadLossPackets" class="value-detail">等待确认</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">UDP 上行速率</div>
+                        <div id="uploadBps" class="value">—</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">UDP 下行速率</div>
+                        <div id="downloadBps" class="value">—</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">Jitter ↑ / ↓</div>
+                        <div id="jitter" class="value compact direction-pair">↑ —
+                            ↓ —
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="label">探测次数</div>
+                        <div id="udpProbe" class="value">0</div>
+                    </div>
+                </div>
+            </div>
+            <div id="tcpDashboard" class="panel hidden">
+                <div class="cards">
+                    <div class="card">
+                        <div class="label">TCP 上行速率</div>
+                        <div id="tcpUploadBps" class="value">—</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">TCP 下行速率</div>
+                        <div id="tcpDownloadBps" class="value">—</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">上行重传</div>
+                        <div id="tcpUpRetr" class="value">—</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">下行重传</div>
+                        <div id="tcpDownRetr" class="value">—</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">上/下行 RTT</div>
+                        <div id="tcpRtt" class="value compact direction-pair">↑ —
+                            ↓ —
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="label">RTT 波动 ↑ / ↓</div>
+                        <div id="tcpRttVar" class="value compact direction-pair">↑ —
+                            ↓ —
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="label">拥塞窗口 ↑ / ↓</div>
+                        <div id="tcpCwnd" class="value compact direction-pair">↑ —
+                            ↓ —
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="label">PMTU ↑ / ↓</div>
+                        <div id="tcpPmtu" class="value compact direction-pair">↑ —
+                            ↓ —
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="label">拥塞算法</div>
+                        <div id="tcpCongestion" class="value compact">—</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">探测次数</div>
+                        <div id="tcpProbe" class="value">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="charts">
+                <div class="panel"><h2 id="qualityChartTitle">丢包率趋势</h2>
+                    <canvas id="qualityChart"></canvas>
+                    <div class="legend"><span><i></i><span id="qualityChartLegend">服务端确认丢包率</span></span></div>
+                </div>
+                <div class="panel"><h2>吞吐趋势</h2>
+                    <canvas id="bpsChart"></canvas>
+                    <div class="legend"><span><i class="blue"></i>当前协议速率</span></div>
+                </div>
+            </div>
+            <div class="panel"><h2>连接与运行信息</h2>
+                <div class="info">
+                    <div><b>本地端点</b><span id="local">—</span></div>
+                    <div><b>远端端点</b><span id="remote">—</span></div>
+                    <div><b>IP 协议</b><span id="ipFamily">自动识别</span></div>
+                    <div><b>iperf3 版本</b><span id="version">—</span></div>
+                    <div><b>进程 PID</b><span id="pid">—</span></div>
+                    <div><b>会话 ID</b><span id="session">—</span></div>
+                    <div><b>开始时间</b><span id="started">—</span></div>
+                    <div><b>上行服务端接收速率</b><span id="uploadReceiverBps">—</span></div>
+                    <div><b>下行接收速率</b><span id="downloadReceiverBps">—</span></div>
+                    <div><b>上/下行乱序包</b><span id="ooo">—</span></div>
+                    <div><b>主机 CPU</b><span id="cpu">—</span></div>
+                    <div><b>服务端 CPU</b><span id="remoteCpu">—</span></div>
+                    <div class="info-wide"><b>最新日志</b><span id="log">—</span></div>
+                    <div class="info-wide"><b>系统信息</b><span id="system">—</span></div>
+                </div>
+            </div>
+            <div class="panel"><h2>区间明细 <span id="tableDescription" class="small">（UDP 丢包与 Jitter）</span></h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead id="tableHead"></thead>
+                        <tbody id="rows"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+    <footer>数据由本机 iperf3 产生；UDP 丢包需要服务端回传，因此确认延迟通常不超过单次探测时长。</footer>
+</main>
+<script src="/assets/monitor-ui.js"></script>
+<script>
+    // 直接打开源码文件时回到本机运行的 Web 服务；局域网设备应直接访问
+    // http://<运行机器的局域网IP>:8088/，不需要打开这个 HTML 文件。
+    if (location.protocol === 'file:') location.replace('http://localhost:8088/');
+    const $ = id => document.getElementById(id);
+    let state = null, protocolData = Object.create(null), source, activeTestId = '', testsCache = [], switchVersion = 0,
+        testsLoadVersion = 0,
+        mutatingTests = false;
+    const alertedErrors = new Map();
+    const fields = ['host', 'port', 'bitrate', 'intervalSeconds', 'probeDuration', 'packetLength', 'parallelStreams', 'binaryPath', 'protocol', 'omitSeconds'];
+
+    function config() {
+        const c = {};
+        fields.forEach(k => {
+            const el = $(k);
+            c[k] = el.type === 'number' ? (el.value === '' ? 0 : Number(el.value)) : el.value.trim();
+        });
+        c.bidir = $('mode').value === 'bidir';
+        c.reverse = $('mode').value === 'download';
+        c.continuous = true;
+        return c;
+    }
+
+    const defaultConfig = config();
+    let draftConfig = {...defaultConfig};
+
+    function setConfig(c) {
+        if (!c) return;
+        fields.forEach(k => {
+            if (c[k] === undefined) return;
+            $(k).value = c[k];
+        });
+        $('mode').value = c.bidir ? 'bidir' : (c.reverse ? 'download' : 'upload');
+        if (window.configSelects) window.configSelects.setValues($('protocol').value, $('mode').value);
+        toggleProtocol();
+    }
+
+    function withTestId(path, testId) {
+        const mark = path.includes('?') ? '&' : '?';
+        return path + mark + 'testId=' + encodeURIComponent(testId);
+    }
+
+    function withTest(path) {
+        return withTestId(path, activeTestId);
+    }
+
+    async function jsonResponse(response) {
+        const data = await response.json();
+        if (!response.ok) throw Error(data.error || '请求失败');
+        return data;
+    }
+
+    function apiFor(testId, path, body) {
+        return fetch(withTestId(path, testId), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: body ? JSON.stringify(body) : '{}'
+        }).then(jsonResponse);
+    }
+
+    function setAlert(message, force = false) {
+        window.testAlert.set(message || '', force);
+    }
+
+    function showTestErrorAlert(message) {
+        if (message) window.testErrorAlert.show(message);
+    }
+
+    function monitorErrorMessage(snapshot) {
+        const error = String(snapshot && snapshot.lastError || '').trim(),
+            log = String(snapshot && snapshot.lastLog || '').trim();
+        if (log && error && !error.includes(log)) return `${error}；iperf3：${log}`;
+        return error || log || '监测任务发生错误';
+    }
+
+    function showSnapshotError(snapshot, testId = activeTestId) {
+        if (!snapshot || snapshot.state !== 'error' || !testId) return;
+        const message = monitorErrorMessage(snapshot), key = `${snapshot.sessionId || ''}|${message}`;
+        // 创建响应、SSE 初始快照、实时 error 事件和标签切换可能携带
+        // 同一个错误。用会话 ID 和错误内容去重，让当前错误只提示一次。
+        if (alertedErrors.get(testId) === key) return;
+        alertedErrors.set(testId, key);
+        showTestErrorAlert(message);
+    }
+
+    function startLoading(text) {
+        window.monitorLoading.start(text);
+    }
+
+    function stopLoading() {
+        window.monitorLoading.stop();
+    }
+
+    function updateConfigControls() {
+        // 新增标签始终可编辑；已有标签仅在 idle/error 时允许编辑。
+        // 任务运行、停止中或正在提交候选配置时，所有字段统一锁定。
+        const stopped = state && (state.state === 'idle' || state.state === 'error');
+        const editable = !mutatingTests && (!activeTestId || stopped), mode = $('protocol').value;
+        fields.forEach(id => {
+            $(id).disabled = !editable;
+        });
+        $('mode').disabled = !editable;
+        if (window.configSelects) window.configSelects.setDisabled(!editable);
+        if (editable && mode === 'tcp') {
+            $('bitrate').disabled = true;
+            $('packetLength').disabled = true;
+        }
+    }
+
+    function emptyProtocolData() {
+        return {
+            history: [],
+            uploadLatest: null,
+            downloadLatest: null,
+            summary: null,
+            uploadSummary: null,
+            downloadSummary: null,
+            overallUpload: null,
+            overallDownload: null,
+            probe: 0,
+            updatedAt: null,
+            connection: null,
+            iperfVersion: '',
+            pid: 0,
+            sessionId: '',
+            startedAt: null,
+            lastError: '',
+            lastLog: '',
+            systemInfo: ''
+        };
+    }
+
+    function protocolDataFor(protocol) {
+        if (!protocolData[protocol]) protocolData[protocol] = emptyProtocolData();
+        return protocolData[protocol];
+    }
+
+    function selectedProtocolData() {
+        return protocolData[displayedProtocol()] || emptyProtocolData();
+    }
+
+    function cacheSnapshotData(snapshot) {
+        const protocol = snapshot && snapshot.config && snapshot.config.protocol;
+        if (!protocol) return;
+        protocolData[protocol] = {
+            history: (snapshot.history || []).slice(),
+            uploadLatest: snapshot.uploadLatest || null,
+            downloadLatest: snapshot.downloadLatest || null,
+            summary: snapshot.summary || null,
+            uploadSummary: snapshot.uploadSummary || null,
+            downloadSummary: snapshot.downloadSummary || null,
+            overallUpload: snapshot.overallUpload || null,
+            overallDownload: snapshot.overallDownload || null,
+            probe: snapshot.probe || 0,
+            updatedAt: snapshot.updatedAt || null,
+            connection: snapshot.connection || null,
+            iperfVersion: snapshot.iperfVersion || '',
+            pid: snapshot.pid || 0,
+            sessionId: snapshot.sessionId || '',
+            startedAt: snapshot.startedAt || null,
+            lastError: snapshot.lastError || '',
+            lastLog: snapshot.lastLog || '',
+            systemInfo: snapshot.systemInfo || ''
+        };
+    }
+
+    function displayedProtocol() {
+        // 仪表盘是协议选择器的响应式视图，协议值一变化就立即切换；运行中
+        // 选择器已被锁定，因此不会出现运行任务与表单协议不一致的情况。
+        // 是否正式保存仍由“重新监测”成功与否决定，不影响这里的即时预览。
+        return $('protocol').value;
+    }
+
+    function updateTableHeader(protocol) {
+        const udp = protocol === 'udp';
+        const headers = udp ? ['发生时间', '探测', '方向', '区间', '速率', '发/收包', '丢失/总包', '丢包率', 'Jitter', '乱序包', '数据来源', '状态'] : ['发生时间', '探测', '方向', '区间', '速率', '字节数', '重传', 'RTT', 'RTT 波动', '拥塞窗口', 'PMTU', '状态'];
+        $('tableHead').innerHTML = '<tr>' + headers.map(label => `<th>${label}</th>`).join('') + '</tr>';
+        $('tableDescription').textContent = udp ? '（UDP 丢包与 Jitter）' : '（TCP 重传、RTT 与拥塞窗口）';
+    }
+
+    function toggleProtocol() {
+        // 协议选择器变化后统一刷新仪表盘、趋势图和区间表头。
+        const protocol = displayedProtocol();
+        $('udpDashboard').classList.toggle('hidden', protocol !== 'udp');
+        $('tcpDashboard').classList.toggle('hidden', protocol !== 'tcp');
+        $('qualityChartTitle').textContent = protocol === 'udp' ? '丢包率趋势' : 'TCP 重传趋势';
+        $('qualityChartLegend').textContent = protocol === 'udp' ? '服务端确认丢包率' : '区间重传次数';
+        updateTableHeader(protocol);
+        updateConfigControls();
+    }
+
+    function fmtBps(v) {
+        if (v == null || !isFinite(v)) return '—';
+        const u = ['bps', 'Kbps', 'Mbps', 'Gbps'],
+            i = Math.min(3, Math.floor(Math.log(Math.max(1, v) / 1000) / Math.log(1000)) + 1);
+        return (v / Math.pow(1000, i)).toFixed(i ? 2 : 0) + ' ' + u[i];
+    }
+
+    function fmtNum(v) {
+        return v == null ? '—' : Number(v).toLocaleString('zh-CN');
+    }
+
+    function fmtPct(v) {
+        if (v == null) return '等待确认';
+        const value = Number(v);
+        if (!Number.isFinite(value)) return '—';
+        // 页面统一保留两位小数；如果确实存在丢包但实际比例小于 0.01%，
+        // 使用“<0.01%”表达显示精度边界，避免与真正的 0.00% 混淆。
+        if (value !== 0 && Math.abs(value) < 0.01) return '<0.01%';
+        return value.toFixed(2) + '%';
+    }
+
+    function fmtLossPackets(summary) {
+        return summary && summary.confirmed ? `丢失 ${fmtNum(summary.lostPackets)} / 总计 ${fmtNum(summary.packets)} 包` : '等待确认';
+    }
+
+    function metric(sample, sampleKey, summary, summaryKey) {
+        const sampleValue = sample && sample[sampleKey];
+        const summaryValue = summary && summary[summaryKey];
+        // iperf3 在部分系统上用 -1/0 表示没有提供 PMTU，不能把它显示成有效值。
+        if (sampleKey === 'pmtu') {
+            if (sampleValue != null && Number(sampleValue) > 0) return sampleValue;
+            return summaryValue != null && Number(summaryValue) > 0 ? summaryValue : null;
+        }
+        if (sampleValue != null) return sampleValue;
+        return summaryValue != null ? summaryValue : null;
+    }
+
+    function fmtPair(up, down, digits = 2, suffix = '') {
+        const value = v => v == null ? '—' : Number(v).toFixed(digits) + suffix;
+        // 使用换行符配合 direction-pair 的 pre-line，保留 textContent 的安全输出方式。
+        return `↑ ${value(up)}\n↓ ${value(down)}`;
+    }
+
+    function fmtPmtuPair(up, down) {
+        const value = v => v == null ? '—' : fmtNum(v) + ' B';
+        // 服务端没有通过 iperf3 回传 PMTU 时明确标注，避免把缺失数据误认为 0。
+        return `↑ ${value(up)}\n↓ ${down == null ? '未提供' : value(down)}`;
+    }
+
+    function fmtTime(v) {
+        return v ? new Date(v).toLocaleTimeString('zh-CN', {hour12: false}) : '—';
+    }
+
+    function restoreScroll(top) {
+        requestAnimationFrame(() => window.scrollTo(0, top));
+    }
+
+    function delay(milliseconds) {
+        return new Promise(resolve => setTimeout(resolve, milliseconds));
+    }
+
+    async function waitForStop(testId, snapshot) {
+        // 停止接口返回“停止中”并不代表 iperf3 子进程已经退出；持续查询到
+        // idle 后再关闭 Loading，避免遮罩一闪而过、按钮提前恢复可操作状态。
+        const loadingStartedAt = Date.now(), deadline = loadingStartedAt + 15000;
+        let latest = snapshot;
+        while (latest && latest.state === 'stopping' && Date.now() < deadline) {
+            await delay(150);
+            latest = await fetch(withTestId('/api/status', testId)).then(jsonResponse);
+            if (testId === activeTestId) applySnapshot(latest);
+        }
+        // 给浏览器至少一次绘制 Loading 的机会，快速停止时也不会看起来像闪屏。
+        const remaining = 220 - (Date.now() - loadingStartedAt);
+        if (remaining > 0) await delay(remaining);
+        return latest;
+    }
+
+    function applySnapshot(s) {
+        // 停止/错误标签允许存在尚未提交的表单编辑。SSE 重连可能再次发送旧
+        // 快照，此时只更新运行数据，不覆盖用户正在编辑的地址、协议等字段。
+        // 切换标签、运行中更新或重新监测提交成功时 state/mutatingTests 会使
+        // preserveForm 为 false，从而仍然以服务端正式配置刷新表单。
+        const preserveForm = Boolean(activeTestId && state && !mutatingTests &&
+            (state.state === 'idle' || state.state === 'error') &&
+            (s.state === 'idle' || s.state === 'error'));
+        state = s;
+        // 快照只更新它所属协议的数据槽位；例如当前正在编辑 TCP 时，
+        // 到达的旧 UDP 快照仍然保存在 UDP 槽位，不会覆盖 TCP 视图。
+        cacheSnapshotData(s);
+        if (!preserveForm) setConfig(s.config);
+        updateActiveTestOption(s);
+        render();
+    }
+
+    function upsert(sample) {
+        const protocol = sample.protocol || (state && state.config && state.config.protocol);
+        const data = protocolDataFor(protocol);
+        const i = data.history.findIndex(x => x.id === sample.id);
+        if (i < 0) data.history.push(sample); else data.history[i] = sample;
+        data.history = data.history.slice(-300);
+        data.probe = Math.max(data.probe || 0, sample.probe || 0);
+        // 实时样本也只更新自己的协议槽位，切回该协议时可以继续查看。
+        if (sample.direction === 'upload' && (sample.source !== 'server' || !data.uploadLatest)) {
+            data.uploadLatest = sample;
+        }
+        if (sample.direction === 'download' && (sample.source !== 'server' || !data.downloadLatest)) {
+            data.downloadLatest = sample;
+        }
+        render();
+    }
+
+    function sameConfig(left, right) {
+        if (!left || !right) return false;
+        const comparable = value => {
+            const normalized = {
+                ...value,
+                host: String(value.host || '').trim(),
+                binaryPath: String(value.binaryPath || '').trim(),
+                bitrate: String(value.bitrate || '').trim(),
+                continuous: true
+            };
+            // TCP 不使用这两个 UDP 专属参数，判重时必须忽略其历史值。
+            if (normalized.protocol === 'tcp') {
+                normalized.bitrate = defaultConfig.bitrate;
+                normalized.packetLength = defaultConfig.packetLength;
+            }
+            return normalized;
+        };
+        const a = comparable(left), b = comparable(right);
+        return [...fields, 'bidir', 'reverse'].every(key => String(a[key] ?? '') === String(b[key] ?? ''));
+    }
+
+    function validateConfig(c) {
+        if (!c.host || c.host.length > 253) return '服务端地址不能为空且不能超过 253 个字符';
+        if (c.port < 1 || c.port > 65535) return '端口必须在 1 到 65535 之间';
+        if (c.protocol !== 'udp' && c.protocol !== 'tcp') return '检测协议必须是 UDP 或 TCP';
+        if (c.protocol === 'udp' && (!c.bitrate || c.bitrate.length > 24)) return '目标速率不能为空，例如 1M、10M 或 1G';
+        if (c.intervalSeconds < 0.1 || c.intervalSeconds > 60) return '统计间隔必须在 0.1 到 60 秒之间';
+        if (c.probeDuration < 1 || c.probeDuration > 3600) return '单次探测时长必须在 1 到 3600 秒之间';
+        if (c.protocol === 'udp' && (c.packetLength < 0 || c.packetLength > 65507)) return 'UDP 包长度必须在 0 到 65507 之间，0 表示使用 iperf3 默认值';
+        if (c.parallelStreams < 1 || c.parallelStreams > 32) return '并行流数量必须在 1 到 32 之间';
+        if (c.omitSeconds < 0 || c.omitSeconds >= c.probeDuration) return '预热忽略时长必须大于等于 0 且小于单次探测时长';
+        if (!c.binaryPath) return 'iperf3 可执行文件不能为空';
+        return '';
+    }
+
+    function updateActionButtons() {
+        const creating = !activeTestId,
+            running = Boolean(state && (state.state === 'running' || state.state === 'stopping'));
+        $('start').textContent = creating ? '开始监测' : '重新监测';
+        $('start').disabled = mutatingTests || (!creating && (!state || running));
+        $('start').title = creating ? '创建新的监测标签' : '验证并保存当前配置后重新开始监测';
+        $('stop').classList.toggle('hidden', creating);
+        $('stop').disabled = mutatingTests || creating || !state || state.state !== 'running';
+        updateConfigControls();
+    }
+
+    function renderEmpty() {
+        $('dot').className = 'dot';
+        $('stateText').textContent = '暂无监测';
+        $('updatedText').textContent = '';
+        $('stop').disabled = true;
+        ['uploadLoss', 'downloadLoss'].forEach(id => {
+            $(id).textContent = '等待开始';
+            $(id).className = 'value';
+        });
+        $('uploadLossPackets').textContent = '等待确认';
+        $('downloadLossPackets').textContent = '等待确认';
+        ['uploadBps', 'downloadBps', 'tcpUploadBps', 'tcpDownloadBps', 'tcpUpRetr', 'tcpDownRetr', 'tcpCongestion', 'local', 'remote', 'version', 'pid', 'session', 'started', 'uploadReceiverBps', 'downloadReceiverBps', 'cpu', 'remoteCpu', 'log', 'system'].forEach(id => $(id).textContent = '—');
+        ['tcpRtt', 'tcpRttVar', 'tcpCwnd', 'tcpPmtu'].forEach(id => $(id).textContent = fmtPair(null, null));
+        $('jitter').textContent = fmtPair(null, null, 2, ' ms');
+        $('udpProbe').textContent = '0';
+        $('tcpProbe').textContent = '0';
+        $('ooo').textContent = '— / —';
+        $('ipFamily').textContent = '自动识别';
+        toggleProtocol();
+        $('rows').innerHTML = '<tr><td colspan="12" class="small">暂无监测数据，配置后点击“开始监测”</td></tr>';
+        updateActionButtons();
+        draw();
+    }
+
+    function render() {
+        if (!state || !activeTestId) {
+            renderEmpty();
+            return;
+        }
+        const running = state.state === 'running' || state.state === 'stopping';
+        $('dot').className = 'dot ' + (state.state === 'running' ? 'running' : state.state === 'error' ? 'error' : '');
+        $('stateText').textContent = {
+            idle: '未运行',
+            running: '监测中',
+            stopping: '正在停止',
+            error: '发生错误'
+        }[state.state] || state.state;
+        const protocol = displayedProtocol(), data = selectedProtocolData();
+        $('updatedText').textContent = data.updatedAt ? '更新 ' + fmtTime(data.updatedAt) : '';
+        $('stop').disabled = !running;
+        // UDP 和 TCP 使用独立数据槽位。切换协议只是切换当前视图，
+        // 不会删除另一套数据，也不会把另一套数据填入当前仪表盘。
+        const up = data.uploadLatest, down = data.downloadLatest;
+        const us = data.uploadSummary, ds = data.downloadSummary;
+        const overallUp = data.overallUpload, overallDown = data.overallDownload;
+        const upLoss = overallUp && overallUp.confirmed ? overallUp.lossPercent : null,
+            downLoss = overallDown && overallDown.confirmed ? overallDown.lossPercent : null;
+        const lossClass = v => v > 5 ? 'bad' : v > 0 ? 'warn' : 'good';
+        $('uploadLoss').textContent = fmtPct(upLoss);
+        $('uploadLoss').className = 'value ' + lossClass(upLoss);
+        $('uploadLossPackets').textContent = fmtLossPackets(overallUp);
+        $('downloadLoss').textContent = fmtPct(downLoss);
+        $('downloadLoss').className = 'value ' + lossClass(downLoss);
+        $('downloadLossPackets').textContent = fmtLossPackets(overallDown);
+        $('uploadBps').textContent = up ? fmtBps(up.bitsPerSecond) : '—';
+        $('downloadBps').textContent = down ? fmtBps(down.bitsPerSecond) : '—';
+        $('jitter').textContent = fmtPair(up && up.jitterMs, down && down.jitterMs, 2, ' ms');
+        $('udpProbe').textContent = data.probe || 0;
+        $('tcpUploadBps').textContent = up ? fmtBps(up.bitsPerSecond) : '—';
+        $('tcpDownloadBps').textContent = down ? fmtBps(down.bitsPerSecond) : '—';
+        $('tcpUpRetr').textContent = fmtNum(metric(up, 'retransmits', us, 'retransmits'));
+        $('tcpDownRetr').textContent = fmtNum(metric(down, 'retransmits', ds, 'retransmits'));
+        $('tcpRtt').textContent = fmtPair(metric(up, 'rttMs', us, 'meanRttMs'), metric(down, 'rttMs', ds, 'meanRttMs'), 2, ' ms');
+        $('tcpRttVar').textContent = fmtPair(metric(up, 'rttVarMs', us, 'rttVarMs'), metric(down, 'rttVarMs', ds, 'rttVarMs'), 2, ' ms');
+        $('tcpCwnd').textContent = fmtPair(metric(up, 'sndCwnd', us, 'sndCwnd'), metric(down, 'sndCwnd', ds, 'sndCwnd'), 0, ' B');
+        $('tcpPmtu').textContent = fmtPmtuPair(metric(up, 'pmtu', null, ''), metric(down, 'pmtu', null, ''));
+        $('tcpCongestion').textContent = (us && us.congestion) || (ds && ds.congestion) || '—';
+        $('tcpProbe').textContent = data.probe || 0;
+        toggleProtocol();
+        const sum = us || data.summary || ds;
+        const remoteHost = data.connection && data.connection.remoteHost;
+        $('local').textContent = data.connection ? data.connection.localHost + ':' + data.connection.localPort : '—';
+        $('remote').textContent = data.connection ? data.connection.remoteHost + ':' + data.connection.remotePort : '—';
+        $('ipFamily').textContent = remoteHost ? (remoteHost.includes(':') ? 'IPv6' : 'IPv4') : '自动识别';
+        $('version').textContent = data.iperfVersion || '—';
+        $('pid').textContent = data.pid || '—';
+        $('session').textContent = data.sessionId || '—';
+        $('started').textContent = fmtTime(data.startedAt);
+        $('uploadReceiverBps').textContent = us && (us.receiverBitsPerSecond || us.bitsPerSecond) ? fmtBps(us.receiverBitsPerSecond || us.bitsPerSecond) : '—';
+        $('downloadReceiverBps').textContent = ds && (ds.receiverBitsPerSecond || ds.bitsPerSecond) ? fmtBps(ds.receiverBitsPerSecond || ds.bitsPerSecond) : '—';
+        $('ooo').textContent = (up && up.outOfOrder != null ? fmtNum(up.outOfOrder) : '—') + ' / ' + (down && down.outOfOrder != null ? fmtNum(down.outOfOrder) : '—');
+        $('cpu').textContent = sum && sum.cpu ? Number(sum.cpu.hostTotal).toFixed(2) + '%' : '—';
+        $('remoteCpu').textContent = sum && sum.cpu ? Number(sum.cpu.remoteTotal).toFixed(2) + '%' : '—';
+        $('log').textContent = data.lastError || data.lastLog || '—';
+        $('system').textContent = data.systemInfo || '—';
+        updateActionButtons();
+        const samples = data.history.filter(x => x.protocol === protocol).slice().reverse();
+        $('rows').innerHTML = samples.map(x => {
+            const direction = x.direction === 'download' ? '下行' : '上行',
+                status = `<td class="${x.status === 'confirmed' ? 'confirmed' : 'live'}">${x.status === 'confirmed' ? '已确认' : '实时'}</td>`,
+                common = `<td>${fmtTime(x.timestamp)}</td><td>#${x.probe}</td><td>${direction}</td><td>${Number(x.startSeconds).toFixed(2)}–${Number(x.endSeconds).toFixed(2)}s</td><td>${fmtBps(x.bitsPerSecond)}</td>`;
+            if (protocol === 'tcp') return `<tr>${common}<td>${fmtNum(x.bytes)}</td><td>${fmtNum(x.retransmits)}</td><td>${x.rttMs == null ? '—' : Number(x.rttMs).toFixed(3) + ' ms'}</td><td>${x.rttVarMs == null ? '—' : Number(x.rttVarMs).toFixed(3) + ' ms'}</td><td>${x.sndCwnd == null ? '—' : fmtNum(x.sndCwnd) + ' B'}</td><td>${x.pmtu == null ? '—' : fmtNum(x.pmtu) + ' B'}</td>${status}</tr>`;
+            const loss = x.lossPercent, cls = loss > 5 ? 'loss-high' : loss > 0 ? 'loss-mid' : '', source = {
+                client: '客户端',
+                server: '服务端',
+                'server-summary': '服务端汇总'
+            }[x.source] || x.source || '—';
+            return `<tr>${common}<td>${fmtNum(x.packets)}</td><td>${x.lostPackets == null ? '—' : fmtNum(x.lostPackets) + ' / ' + fmtNum(x.totalPackets)}</td><td class="${cls}">${fmtPct(loss)}</td><td>${x.jitterMs == null ? '—' : Number(x.jitterMs).toFixed(3) + ' ms'}</td><td>${fmtNum(x.outOfOrder)}</td><td>${source}</td>${status}</tr>`;
+        }).join('') || '<tr><td colspan="12" class="small">等待开始监测</td></tr>';
+        draw();
+    }
+
+    function drawLine(id, values, color, suffix) {
+        const c = $(id), dpr = devicePixelRatio || 1, w = c.clientWidth || 500, h = 170;
+        c.width = w * dpr;
+        c.height = h * dpr;
+        const x = c.getContext('2d');
+        x.scale(dpr, dpr);
+        x.clearRect(0, 0, w, h);
+        x.font = '11px sans-serif';
+        x.textBaseline = 'middle';
+        const rawMax = values.length ? Math.max(...values) : 0, rawMin = values.length ? Math.min(...values, 0) : 0;
+        const axisMax = rawMax === rawMin ? (rawMax === 0 ? 1 : rawMax * 1.1) : rawMax, axisMin = rawMin,
+            range = axisMax - axisMin || 1;
+        const maxLabel = axisMax.toFixed(2) + suffix, minLabel = axisMin.toFixed(2) + suffix;
+        // 坐标文字占用左侧独立区域，折线从 plotLeft 后开始，0.00% 不再压在线上。
+        const plotLeft = Math.max(50, Math.ceil(Math.max(x.measureText(maxLabel).width, x.measureText(minLabel).width)) + 10),
+            plotRight = 8, plotTop = 12, plotBottom = 20, plotWidth = Math.max(1, w - plotLeft - plotRight),
+            plotHeight = h - plotTop - plotBottom;
+        x.strokeStyle = '#e9edf4';
+        x.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const py = plotTop + i * plotHeight / 4;
+            x.beginPath();
+            x.moveTo(plotLeft, py);
+            x.lineTo(w - plotRight, py);
+            x.stroke();
+        }
+        x.fillStyle = color;
+        x.fillText(maxLabel, 4, plotTop);
+        x.fillText(minLabel, 4, plotTop + plotHeight);
+        if (!values.length) return;
+        x.strokeStyle = color;
+        x.lineWidth = 2;
+        x.beginPath();
+        values.forEach((v, i) => {
+            const px = values.length === 1 ? plotLeft + plotWidth / 2 : plotLeft + i * plotWidth / (values.length - 1),
+                py = plotTop + (axisMax - v) / range * plotHeight;
+            i ? x.lineTo(px, py) : x.moveTo(px, py);
+        });
+        x.stroke();
+    }
+
+    function draw() {
+        const protocol = displayedProtocol(),
+            selected = selectedProtocolData().history.filter(x => x.protocol === protocol);
+        const quality = protocol === 'udp' ? selected.filter(x => x.lossPercent != null).slice(-60).map(x => x.lossPercent) : selected.filter(x => x.retransmits != null).slice(-60).map(x => x.retransmits);
+        drawLine('qualityChart', quality, '#dc4658', protocol === 'udp' ? '%' : ' 次');
+        const bs = selected.slice(-60);
+        drawLine('bpsChart', bs.map(x => x.bitsPerSecond / 1e6), '#2868e8', ' Mbps');
+    }
+
+    function connect(testId = activeTestId) {
+        if (source) source.close();
+        const selected = testId;
+        source = new EventSource(withTestId('/api/stream', selected));
+        ['snapshot', 'state', 'start', 'process'].forEach(t => source.addEventListener(t, e => {
+            if (selected !== activeTestId) return;
+            const snapshot = JSON.parse(e.data);
+            applySnapshot(snapshot);
+            showSnapshotError(snapshot, selected);
+        }));
+        // 监测任务自身错误统一使用确认窗；Message 只保留给新建、删除等操作请求失败。
+        source.addEventListener('error', e => {
+            if (!e.data || selected !== activeTestId) return;
+            const snapshot = JSON.parse(e.data);
+            applySnapshot(snapshot);
+            showSnapshotError(snapshot, selected);
+        });
+        source.addEventListener('sample', e => {
+            if (selected === activeTestId) upsert(JSON.parse(e.data));
+        });
+        source.addEventListener('overall', e => {
+            if (selected !== activeTestId) return;
+            const d = JSON.parse(e.data);
+            const data = protocolDataFor(state.config.protocol);
+            data.overallUpload = d.upload || null;
+            data.overallDownload = d.download || null;
+            render();
+        });
+        source.addEventListener('summary', e => {
+            if (selected !== activeTestId) return;
+            const d = JSON.parse(e.data);
+            const data = protocolDataFor(state.config.protocol);
+            if (d.direction === 'download') {
+                data.downloadSummary = d;
+                if (d.overall) data.overallDownload = d.overall;
+            } else {
+                data.uploadSummary = d;
+                if (d.overall) data.overallUpload = d.overall;
+            }
+            render();
+        });
+        // 已有标签的新配置启动成功后，后端会原子替换 Manager。
+        // 任何仍连在旧 Manager 的浏览器都通过 replace 事件立即改连。
+        source.addEventListener('replace', e => {
+            if (selected !== activeTestId) return;
+            alertedErrors.delete(selected);
+            // replace 代表一次真正的新监测，服务端已经清空历史；同步清掉
+            // 前端各协议槽位，避免旧协议数据在新会话中继续显示。
+            protocolData = Object.create(null);
+            applySnapshot(JSON.parse(e.data));
+            connect(selected);
+        });
+        source.onerror = () => {
+            source.close();
+            if (selected === activeTestId) setTimeout(() => {
+                if (selected === activeTestId) connect(selected);
+            }, 2000);
+        };
+    }
+
+    // Element Plus 使用响应式列表更新下拉项，不再重建系统原生 select，因此
+    // 后台状态刷新不会打断用户正在进行的标签选择。
+    function syncTestOptions(tests, preferred) {
+        testsCache = tests;
+        const candidate = preferred !== undefined ? preferred : activeTestId;
+        // 空 ID 对应固定的“新增标签”选项。页面初次打开时默认停留在这里，
+        // 后台列表刷新也不会擅自切换到已有标签。
+        activeTestId = candidate && tests.some(test => test.id === candidate) ? candidate : '';
+        window.testSelector.update(tests, activeTestId);
+        updateActionButtons();
+    }
+
+    function updateActiveTestOption(snapshot) {
+        const test = testsCache.find(item => item.id === activeTestId);
+        if (!test || !snapshot) return;
+        test.state = snapshot.state;
+        test.host = snapshot.config.host;
+        test.port = snapshot.config.port;
+        test.protocol = snapshot.config.protocol;
+        test.config = {...snapshot.config};
+        window.testSelector.update(testsCache, activeTestId);
+    }
+
+    async function loadTests(preferred, force = false) {
+        if (mutatingTests && !force) return testsCache;
+        const requestVersion = ++testsLoadVersion, tests = await fetch('/api/tests').then(jsonResponse);
+        // 只允许最后发起的列表请求更新界面，防止慢响应覆盖刚完成的新增或删除。
+        if (requestVersion !== testsLoadVersion) return testsCache;
+        syncTestOptions(tests, preferred);
+        return tests;
+    }
+
+    async function switchTest(id) {
+        const version = ++switchVersion;
+        if (!id) {
+            if (source) {
+                source.close();
+                source = null;
+            }
+            activeTestId = '';
+            state = null;
+            protocolData = Object.create(null);
+            window.testSelector.update(testsCache, '');
+            setConfig(draftConfig);
+            renderEmpty();
+            return;
+        }
+        // 离开“新增标签”时保留尚未提交的草稿。已有标签的编辑内容
+        // 在切换标签时丢弃，重新进入时读取最后一次成功保存的配置。
+        if (!activeTestId) draftConfig = {...config()};
+        activeTestId = id;
+        state = null;
+        protocolData = Object.create(null);
+        window.testSelector.update(testsCache, id);
+        updateActionButtons();
+        if (source) {
+            source.close();
+            source = null;
+        }
+        const snapshot = await fetch(withTestId('/api/status', id)).then(jsonResponse);
+        if (version !== switchVersion || id !== activeTestId) return;
+        const scrollTop = window.scrollY;
+        applySnapshot(snapshot);
+        restoreScroll(scrollTop);
+        // 首次切换到错误标签时展示确认窗；同一会话的同一错误
+        // 已确认后，在标签间来回切换不再反复提示。
+        showSnapshotError(snapshot, id);
+        connect(id);
+    }
+
+    function showError(error) {
+        setAlert(error.message, true);
+    }
+
+    function setMutating(value) {
+        mutatingTests = value;
+        window.testSelector.setDisabled(value);
+        updateActionButtons();
+    }
+
+    async function deleteTest(deletedID) {
+        if (!deletedID || mutatingTests) return;
+        const deletingActive = deletedID === activeTestId;
+        setMutating(true);
+        startLoading('正在停止并删除监测…');
+        ++testsLoadVersion;
+        ++switchVersion;
+        if (deletingActive && source) {
+            source.close();
+            source = null;
+        }
+        try {
+            const result = await fetch(withTestId('/api/tests', deletedID), {method: 'DELETE'}).then(jsonResponse);
+            alertedErrors.delete(deletedID);
+            const nextID = deletingActive ? result.nextId : activeTestId;
+            syncTestOptions(result.tests, nextID);
+            if (deletingActive) {
+                state = null;
+                await switchTest(nextID);
+            }
+        } catch (e) {
+            showError(e);
+            await loadTests(activeTestId, true);
+            if (deletingActive && activeTestId) connect(activeTestId);
+        } finally {
+            stopLoading();
+            setMutating(false);
+        }
+    }
+
+    async function startMonitoring() {
+        if (mutatingTests || $('start').disabled) return;
+        const creating = !activeTestId, requestedConfig = config();
+        const validationError = validateConfig(requestedConfig);
+        if (validationError) {
+            showError(Error(validationError));
+            return;
+        }
+        // 重新监测时排除当前标签自身，因此原配置可以直接重启。
+        // 后端会在同一个原子操作中再次检查，这里仅用于快速反馈。
+        const duplicate = testsCache.find(test => test.id !== activeTestId && sameConfig(requestedConfig, test.config));
+        if (duplicate) {
+            showError(Error(`配置已存在于“${duplicate.name}”标签页，请切换到该标签页`));
+            return;
+        }
+        setMutating(true);
+        startLoading('正在初始化并预热监测服务…');
+        ++testsLoadVersion;
+        ++switchVersion;
+        try {
+            if (!creating) {
+                const testId = activeTestId, result = await apiFor(testId, '/api/start', requestedConfig);
+                const scrollTop = window.scrollY;
+                alertedErrors.delete(testId);
+                syncTestOptions(result.tests, testId);
+                // 只有真正启动成功才清理旧会话数据；校验失败或启动失败
+                // 会留在 catch 中，原有 UDP/TCP 数据仍可切换查看。
+                protocolData = Object.create(null);
+                applySnapshot(result.snapshot);
+                connect(testId);
+                restoreScroll(scrollTop);
+                return;
+            }
+            const result = await fetch('/api/tests/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(requestedConfig)
+            }).then(jsonResponse);
+            const scrollTop = window.scrollY;
+            if (source) {
+                source.close();
+                source = null;
+            }
+            draftConfig = {...defaultConfig};
+            activeTestId = result.test.id;
+            syncTestOptions(result.tests, activeTestId);
+            protocolData = Object.create(null);
+            applySnapshot(result.snapshot);
+            showSnapshotError(result.snapshot, activeTestId);
+            connect(activeTestId);
+            restoreScroll(scrollTop);
+        } catch (e) {
+            showError(e);
+        } finally {
+            stopLoading();
+            setMutating(false);
+        }
+    }
+
+    async function stopCurrent() {
+        if (mutatingTests) return;
+        setMutating(true);
+        startLoading('正在停止当前监测…');
+        try {
+            const testId = activeTestId, snapshot = await apiFor(testId, '/api/stop');
+            applySnapshot(snapshot);
+            await waitForStop(testId, snapshot);
+            await loadTests(testId, true);
+        } catch (e) {
+            showError(e);
+        } finally {
+            stopLoading();
+            setMutating(false);
+        }
+    }
+
+    window.addEventListener('test-select-change', event => switchTest(event.detail).catch(showError));
+    window.addEventListener('test-delete-request', event => deleteTest(event.detail));
+    fields.forEach(id => $(id).addEventListener('input', () => {
+        if (!activeTestId) draftConfig = {...config()};
+    }));
+    $('mode').addEventListener('change', () => {
+        if (!activeTestId) draftConfig = {...config()};
+    });
+    $('protocol').onchange = () => {
+        // 重新渲染以清空旧协议卡片中的数值，避免 UDP/TCP 数据短暂混显。
+        render();
+        draw();
+        if (!activeTestId) draftConfig = {...config()};
+    };
+    $('start').onclick = startMonitoring;
+    $('stop').onclick = stopCurrent;
+    // 停止涉及结束子进程和回收管道，极端情况下 SSE 的最后一条状态事件可能
+    // 晚于 HTTP 响应到达；低频状态兜底轮询保证按钮不会停留在“正在停止”。
+    setInterval(() => {
+        if (activeTestId && state && (state.state === 'stopping' || state.state === 'running')) fetch(withTest('/api/status')).then(jsonResponse).then(snapshot => {
+            applySnapshot(snapshot);
+            showSnapshotError(snapshot, activeTestId);
+        }).catch(() => {
+        });
+    }, 1000);
+    setInterval(() => loadTests(activeTestId).catch(() => {
+    }), 2000);
+    window.onresize = draw;
+    renderEmpty();
+    loadTests(undefined, true).then(() => activeTestId ? switchTest(activeTestId) : renderEmpty()).catch(showError);
+</script>
+</body>
+</html>

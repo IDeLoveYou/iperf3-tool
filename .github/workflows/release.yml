@@ -1,0 +1,111 @@
+name: 手动打包并发布 Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "发布版本号，例如 v1.0.0"
+        required: true
+        default: "v1.0.0"
+        type: string
+      targets:
+        description: "构建目标，使用英文逗号分隔"
+        required: true
+        default: "darwin/amd64,darwin/arm64,linux/amd64,linux/arm64,windows/amd64,windows/arm64"
+        type: string
+      prerelease:
+        description: "是否标记为预发布版本"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  package-and-release:
+    name: 构建并发布
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 设置 Node.js 环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: webui/package-lock.json
+
+      - name: 校验发布参数
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_TARGETS: ${{ inputs.targets }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_VERSION" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$ ]]; then
+            echo "版本号只能包含字母、数字、点、下划线和连字符，且长度不能超过 64。"
+            exit 1
+          fi
+
+          if [[ -z "${RELEASE_TARGETS//[[:space:],;]/}" ]]; then
+            echo "至少需要选择一个构建目标。"
+            exit 1
+          fi
+
+      - name: 构建跨平台发布包
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_TARGETS: ${{ inputs.targets }}
+        run: >-
+          go run ./cmd/build package
+          -targets "$RELEASE_TARGETS"
+          -version "$RELEASE_VERSION"
+
+      - name: 展示发布文件
+        run: |
+          set -euo pipefail
+          find dist -maxdepth 1 -type f -print -exec shasum -a 256 {} \;
+
+      - name: 保存构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: iperf3-tool-${{ inputs.version }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: 创建 GitHub Release 并上传文件
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_flags=()
+          if [[ "$RELEASE_PRERELEASE" == "true" ]]; then
+            release_flags+=(--prerelease)
+          fi
+
+          gh release create "$RELEASE_VERSION" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "iperf3-tool $RELEASE_VERSION" \
+            --generate-notes \
+            "${release_flags[@]}"
+

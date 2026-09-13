@@ -1,0 +1,38 @@
+version: '3'
+
+# Taskfile 只提供容易记忆的一键入口；真正的跨平台选择、压缩和校验逻辑位于
+# cmd/build，因此没有安装 Task 时仍然可以直接通过 go run 使用完整构建功能。
+tasks:
+  default:
+    desc: 构建当前系统和架构的发布包
+    cmds:
+      - task: package
+
+  run:
+    desc: 以开发模式启动网站
+    cmds:
+      - go run .
+
+  frontend:
+    desc: 按锁文件安装依赖并重新构建内嵌网页资源
+    cmds:
+      - npm --prefix webui ci
+      - npm --prefix webui run build
+
+  targets:
+    desc: 显示可以选择的平台和架构
+    cmds:
+      - go run ./cmd/build list
+
+  package:
+    desc: 按需构建发布包；TARGETS 用逗号分隔，VERSION 可指定版本
+    vars:
+      TARGETS: '{{.TARGETS | default "current"}}'
+      VERSION: '{{.VERSION | default "dev"}}'
+    cmds:
+      - go run ./cmd/build package -targets "{{.TARGETS}}" -version "{{.VERSION}}"
+
+  clean:
+    desc: 安全删除本项目的 dist 发布目录
+    cmds:
+      - go run ./cmd/build clean

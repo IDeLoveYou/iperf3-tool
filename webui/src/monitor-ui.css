@@ -1,0 +1,64 @@
+.test-selector {
+  width: 100%;
+}
+
+.test-selector .el-select__wrapper {
+  min-height: 38px;
+  border-radius: 8px;
+  background: #fbfcfe;
+  box-shadow: 0 0 0 1px #d9e0eb inset;
+}
+
+.config-select {
+  width: 100%;
+}
+
+.config-select .el-select__wrapper {
+  min-height: 38px;
+  border-radius: 8px;
+  background: #fbfcfe;
+  box-shadow: 0 0 0 1px #d9e0eb inset;
+}
+
+.config-select .el-select__wrapper.is-disabled {
+  background: #f2f4f8;
+  box-shadow: 0 0 0 1px #d9e0eb inset;
+}
+
+.test-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.test-option-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.test-option-new {
+  color: #2868e8;
+  font-weight: 600;
+}
+
+.test-option-delete {
+  flex: 0 0 auto;
+  margin-right: -8px;
+}
+
+.monitor-loading.el-loading-mask {
+  backdrop-filter: blur(2px);
+}
+
+.monitor-loading .el-loading-spinner .path {
+  stroke: #2868e8;
+}
+
+.monitor-loading .el-loading-text {
+  color: #43516a;
+  font-weight: 600;
+}

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">网络波动监测</title>
+  <desc id="desc">带有网络节点和波形的监测图标</desc>
+  <defs>
+    <linearGradient id="background" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#172c57"/>
+      <stop offset="1" stop-color="#0d1731"/>
+    </linearGradient>
+    <linearGradient id="pulse" x1="10" y1="32" x2="54" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#66b7ff"/>
+      <stop offset="1" stop-color="#54e0b0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="15" fill="url(#background)"/>
+  <path d="M11 38h10l5-15 7 27 6-19 5 7h9" fill="none" stroke="url(#pulse)" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/>
+  <circle cx="11" cy="38" r="4" fill="#66b7ff"/>
+  <circle cx="53" cy="38" r="4" fill="#54e0b0"/>
+  <circle cx="33" cy="50" r="3" fill="#fff"/>
+</svg>
